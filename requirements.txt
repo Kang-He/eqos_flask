@@ -1,0 +1,5 @@
+requests
+flask
+redis
+flask_cors
+prometheus_client
