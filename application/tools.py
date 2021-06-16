@@ -68,6 +68,28 @@ class RedisOperator:
             results.append(str(app, encoding="utf-8"))
         return results
 
+    # 添加应用用于计算热点应用
+    def add_hotapp(self, appname):
+        if self._conn.sismember("hotapp_register", appname) == 1:
+            self._conn.zincrby("hotapp", 1, appname)
+        else:
+            self._conn.zadd("hotapp", {appname:1})
+            self._conn.sadd("hotapp_register", appname)
+
+    # 返回运行次数最多的前5的应用名称
+    def get_hotappname(self):
+        if self._conn.exists("hotapp") == 0:
+            return ""
+        if self._conn.zcard("hotapp") >= 5:
+            tmp = self._conn.zrange("hotapp", 0, 4, desc=True)
+        else:
+            tmp = self._conn.zrange("hotapp", 0, -1, desc=True)
+        results = []
+        for appname in tmp:
+            results.append(str(appname, encoding="utf-8"))
+        return results
+
+
 def get_num_str(s):
     s = filter(lambda ch: ch in '0123456789.', s)
     s = list(s)

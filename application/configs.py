@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 REDIS_DB_URL = {
-    'host': '10.10.1.9',
+    'host': '10.10.1.11',
     'port': 6379,
     'password': '',
     'db': 0
@@ -18,10 +18,10 @@ keys = ['app_rbw', 'app_wbw', 'app_data_iops', 'app_create_iops', 'app_open_iops
         , 'app_w_delay', 'app_r_delay', 'app_name']
 
 # 提供计算节点与存储节点的对应关系
-fix=".9QoS.cloudincr-pg0.wisc.cloudlab.us"
-server_list=['10.10.1.8']
+fix=".11qos.cloudincr-pg0.wisc.cloudlab.us"
+server_list=['10.10.1.10']
 compute_dict = {'node-0'+fix: server_list,
                 'node-1'+fix: server_list}
 
-HOST='10.10.1.9'
+HOST='128.105.145.225'
 # HOST='0.0.0.0'

@@ -2,6 +2,7 @@
 
 
 from flask import Flask, jsonify, render_template, request
+from flask.helpers import get_flashed_messages
 from flask_cors import CORS
 from tools import RedisHelper, RedisOperator
 from configs import PUBLISH_CHANNEL, DELIMER, keys, set_keys, HOST, compute_dict
@@ -23,8 +24,11 @@ def index():
 @app.route('/search', methods=['POST'])
 def search():
     # print("request=", request.get_json())
+    global redis_op
     if "app_name" in request.get_json()['target']:
         return jsonify(app_name())
+    elif "hotapp" in request.get_json()['target']:     #收集热点应用
+        return jsonify(redis_op.get_hotappname())
     else:
         query_list = ["app_num"]
         return jsonify(query_list)
@@ -93,6 +97,7 @@ def add_app():
     computes = computes.strip().split(DELIMER)
     global redis_op
     redis_op.add_dict(appname, *computes)
+    redis_op.add_hotapp(appname)
     return jsonify({"code": 200, "message": "OK", "data": {appname:computes}})
 
 
@@ -101,7 +106,14 @@ def remove_app():
     global redis_op
     request_json = request.get_json()
     appname = request_json['data']['appname']
-    redis_op.remove_dict(appname)
+    clients = redis_op.get(appname)  # app_name获取client标识
+    obj = RedisHelper()
+    message = "remove_app:"
+    for client in clients:
+        message += DELIMER + client
+    obj.publish(PUBLISH_CHANNEL, message) #通知服务器端删除相关应用
+    print("publish", PUBLISH_CHANNEL, ": ", message) 
+    redis_op.remove_dict(appname) #删除redis中的应用数据
     return jsonify({"code": 200, "message": "OK", "data": appname})
 
 @app.route('/relation', methods=['POST'])
