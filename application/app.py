@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 
-from flask import Flask, jsonify, render_template, request
-from flask.helpers import get_flashed_messages
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_cors import CORS
 from tools import RedisHelper, RedisOperator
-from configs import PUBLISH_CHANNEL, DELIMER, keys, set_keys, HOST, compute_dict
+from configs import PUBLISH_CHANNEL, PUBLISH_MONITOR_CHANNEL, DELIMER, keys, set_keys, HOST, compute_dict
 import time
 
 redis_op = RedisOperator("appname")
@@ -24,10 +23,10 @@ def index():
 @app.route('/search', methods=['POST'])
 def search():
     # print("request=", request.get_json())
-    global redis_op
     if "app_name" in request.get_json()['target']:
         return jsonify(app_name())
-    elif "hotapp" in request.get_json()['target']:     #收集热点应用
+    elif "hotapp" in request.get_json()['target']:
+        global redis_op
         return jsonify(redis_op.get_hotappname())
     else:
         query_list = ["app_num"]
@@ -45,6 +44,16 @@ def query():
             result["target"] = "app_num"
             data.append(result)
             return jsonify(data)
+    return jsonify({"code": 200, "message": "OK", "data": {}})
+
+@app.route('/set_bw', methods=['POST'])
+def set_bw():
+    request_json = request.get_json()
+    data = request_json['data']
+    global redis_op
+    obj = RedisHelper()
+    message = "set_bw^^" + data
+    obj.publish(PUBLISH_CHANNEL, message)
     return jsonify({"code": 200, "message": "OK", "data": {}})
 
 @app.route('/exp_bw', methods=['POST'])
@@ -98,23 +107,32 @@ def add_app():
     global redis_op
     redis_op.add_dict(appname, *computes)
     redis_op.add_hotapp(appname)
+    obj = RedisHelper()
+    message = "app_nodes:" + DELIMER + appname
+    for client in computes:
+        message += DELIMER + client
+    obj.publish(PUBLISH_MONITOR_CHANNEL, message)
+    print("publish", PUBLISH_CHANNEL, ": ", message)
     return jsonify({"code": 200, "message": "OK", "data": {appname:computes}})
 
 
 @app.route('/remove_app', methods=['POST'])
-def remove_app():
+def remove_app() :
     global redis_op
     request_json = request.get_json()
     appname = request_json['data']['appname']
     clients = redis_op.get(appname)  # app_name获取client标识
     obj = RedisHelper()
     message = "remove_app:"
-    for client in clients:
+    for client in clients :
         message += DELIMER + client
     obj.publish(PUBLISH_CHANNEL, message) #通知服务器端删除相关应用
-    print("publish", PUBLISH_CHANNEL, ": ", message) 
+    obj.publish(PUBLISH_MONITOR_CHANNEL, message)
+    print("publish", PUBLISH_CHANNEL, ": ", message)
+    print("publish", PUBLISH_MONITOR_CHANNEL, ": ", message)
     redis_op.remove_dict(appname) #删除redis中的应用数据
-    return jsonify({"code": 200, "message": "OK", "data": appname})
+    return jsonify({ "code": 200, "message" : "OK", "data" : appname })
+
 
 @app.route('/relation', methods=['POST'])
 def relation():
@@ -144,6 +162,11 @@ def relation():
 @app.route('/map/<int:interval>', methods=['GET'])
 def map(interval):
     return render_template('tree.html', interval=interval)
+
+@app.route('/downloads/<filename>')
+def downloads(filename):
+    return send_from_directory(r"/root/monitor/eqos_flask/application/templates", filename, as_attachment = True)
+
 
 if __name__ == "__main__":
     # flask backend start
